@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪨 Rock Paper Scissors ✂️</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+      
+        body {
+        font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', cursive;
+        background-color: #f5f5f0;
+        background-image: 
+          linear-gradient(0deg, transparent 24px, rgba(200, 200, 200, 0.3) 25px, transparent 26px),
+           linear-gradient(90deg, transparent 24px, rgba(200, 200, 200, 0.3) 25px, transparent 26px);
+        background-size: 25px 25px;
+        }
+
+        .title {
+            font-size: 3rem;
+            color: #333;
+            margin: 20px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 30px;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .container {
+            display: flex;
+            gap: 30px;
+            max-width: 1400px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            border: 3px solid #333;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .scoreboard {
+            width: 300px;
+            text-align: center;
+        }
+
+        .scoreboard h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .scores {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .score-item {
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .score-value {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+
+        .score-you {
+            color: #00d9ff;
+        }
+
+        .score-computer {
+            color: #ff4757;
+        }
+
+        .vs {
+            font-size: 1.5rem;
+            color: #999;
+        }
+
+        .how-to-play {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .how-to-play h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rule {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 1rem;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .instruction {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border: 2px dashed #ffa500;
+            text-align: center;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .game-area {
+            flex: 1;
+            min-width: 600px;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 450px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 4px dashed #ff6b6b;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 1.2rem;
+            z-index: 10;
+        }
+
+        .camera-overlay.hidden {
+            display: none;
+        }
+
+        .retry-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .retry-btn:hover {
+            background: #ff5252;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 15px 35px;
+            font-size: 1.3rem;
+            border: 3px solid #333;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .play-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .play-btn:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+
+        .reset-btn {
+            background: #4ecdc4;
+            color: white;
+        }
+
+        .reset-btn:hover {
+            background: #45b7b0;
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .current-round {
+            width: 300px;
+        }
+
+        .current-round h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .move-display {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .move-label {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .move-value {
+            font-size: 4rem;
+            margin: 10px 0;
+        }
+
+        .move-text {
+            font-size: 1.3rem;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .waiting {
+            color: #999;
+        }
+
+        .countdown-display {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .countdown-number {
+            font-size: 5rem;
+            color: white;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
+            animation: pulse 1s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .countdown-text {
+            font-size: 1.5rem;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .result-display {
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .result-win {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .result-lose {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .result-draw {
+            background: #f39c12;
+            color: white;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">
+        🪨 Rock Paper Scissors ✂️
+    </div>
+    <div class="subtitle">Show your hand gesture to play!</div>
+
+    <div class="container">
+        <!-- Scoreboard -->
+        <div class="card scoreboard">
+            <h2>📊 Scoreboard</h2>
+            <div class="scores">
+                <div class="score-item">
+                    <div class="score-label">You</div>
+                    <div class="score-value score-you" id="playerScore">0</div>
+                </div>
+                <div class="vs">VS</div>
+                <div class="score-item">
+                    <div class="score-label">Computer</div>
+                    <div class="score-value score-computer" id="computerScore">0</div>
+                </div>
+            </div>
+
+            <div class="how-to-play">
+                <h3>📋 How to Play</h3>
+                <div class="rule">🪨 Rock beats ✂️ Scissors</div>
+                <div class="rule">✋ Paper beats 🪨 Rock</div>
+                <div class="rule">✂️ Scissors beats ✋ Paper</div>
+            </div>
+
+            <div class="instruction">
+                Show your hand gesture to the camera!<br>
+                Computer will randomly choose its move 🎲
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div class="game-area card">
+            <div class="camera-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+                <div class="camera-overlay" id="cameraOverlay">
+                    <div>📷 Unable to access camera. Please allow camera permissions.</div>
+                    <button class="retry-btn" onclick="initCamera()">Try Again</button>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="play-btn" id="playBtn" onclick="startGame()">
+                    ▶️ Play!
+                </button>
+                <button class="reset-btn" id="resetBtn" onclick="resetGame()">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Current Round -->
+        <div class="card current-round">
+            <h2>🎮 Current Round</h2>
+
+            <div id="countdownArea" style="display: none;">
+                <div class="countdown-display">
+                    <div class="countdown-number" id="countdownNumber">3</div>
+                    <div class="countdown-text">Get Ready!</div>
+                </div>
+            </div>
+
+            <div class="move-display">
+                <div class="move-label">Your Move</div>
+                <div class="move-value">❓</div>
+                <div class="move-text" id="playerMove">Waiting...</div>
+            </div>
+
+            <div class="move-display">
+                <div class="move-label">Computer's Move</div>
+                <div class="move-value">❓</div>
+                <div class="move-text" id="computerMove">Waiting...</div>
+            </div>
+
+            <div id="resultArea"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        🎥 Powered by OpenCV & MediaPipe | Made with ❤️
+    </div>
+
+    <script>
+        let hands, camera;
+        let gameState = 'waiting'; // waiting, countdown, playing, result
+        let playerScore = 0;
+        let computerScore = 0;
+        let currentPlayerGesture = 'None';
+        let countdownTimer;
+        let countdownValue = 3;
+
+        const gestureEmojis = {
+            'Rock': '🪨',
+            'Paper': '✋',
+            'Scissors': '✂️',
+            'None': '❓'
+        };
+
+        // Initialize MediaPipe Hands
+        function initMediaPipe() {
+            hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
+            });
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(onResults);
+        }
+
+        // Initialize Camera
+        function initCamera() {
+            const videoElement = document.getElementById('video');
+            const overlay = document.getElementById('cameraOverlay');
+
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user' } 
+            })
+            .then(stream => {
+                videoElement.srcObject = stream;
+                overlay.classList.add('hidden');
+                startVideoProcessing();
+            })
+            .catch(err => {
+                console.error('Camera error:', err);
+                overlay.classList.remove('hidden');
+            });
+        }
+
+        // Process video frames
+        function startVideoProcessing() {
+            const videoElement = document.getElementById('video');
+            
+            async function sendFrame() {
+                if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                    await hands.send({ image: videoElement });
+                }
+                requestAnimationFrame(sendFrame);
+            }
+            sendFrame();
+        }
+
+        // Detect gesture from hand landmarks
+        function detectGesture(landmarks) {
+            const tipIds = [4, 8, 12, 16, 20];
+            let fingers = 0;
+
+            // Thumb
+            if (landmarks[tipIds[0]].x < landmarks[tipIds[0] - 1].x) {
+                fingers++;
+            }
+
+            // Other fingers
+            for (let i = 1; i < 5; i++) {
+                if (landmarks[tipIds[i]].y < landmarks[tipIds[i] - 2].y) {
+                    fingers++;
+                }
+            }
+
+            if (fingers === 0) return 'Rock';
+            if (fingers === 2) return 'Scissors';
+            if (fingers === 5) return 'Paper';
+            return 'Unknown';
+        }
+
+        // Handle MediaPipe results
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                currentPlayerGesture = detectGesture(landmarks);
+                
+                if (gameState === 'waiting' || gameState === 'countdown') {
+                    updatePlayerDisplay(currentPlayerGesture);
+                }
+            } else {
+                currentPlayerGesture = 'None';
+            }
+        }
+
+        // Update player move display
+        function updatePlayerDisplay(gesture) {
+            const emoji = gestureEmojis[gesture] || '❓';
+            document.querySelectorAll('.move-display')[0].querySelector('.move-value').textContent = emoji;
+            document.getElementById('playerMove').textContent = gesture === 'Unknown' ? 'Show a gesture' : gesture;
+        }
+
+        // Start game countdown
+        function startGame() {
+            if (gameState !== 'waiting') return;
+
+            gameState = 'countdown';
+            countdownValue = 3;
+            document.getElementById('playBtn').disabled = true;
+            document.getElementById('countdownArea').style.display = 'block';
+            document.getElementById('resultArea').innerHTML = '';
+
+            // Reset computer display
+            document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = '❓';
+            document.getElementById('computerMove').textContent = 'Waiting...';
+
+            runCountdown();
+        }
+
+        // Countdown animation
+        function runCountdown() {
+            const countdownNumber = document.getElementById('countdownNumber');
+            
+            if (countdownValue > 0) {
+                countdownNumber.textContent = countdownValue;
+                countdownNumber.style.animation = 'none';
+                setTimeout(() => {
+                    countdownNumber.style.animation = 'pulse 1s ease-in-out';
+                }, 10);
+                
+                countdownValue--;
+                setTimeout(runCountdown, 1000);
+            } else {
+                countdownNumber.textContent = 'SHOOT!';
+                setTimeout(finishRound, 500);
+            }
+        }
+
+        // Finish the round
+        function finishRound() {
+            gameState = 'result';
+            document.getElementById('countdownArea').style.display = 'none';
+
+            const playerGesture = currentPlayerGesture === 'Unknown' ? 'None' : currentPlayerGesture;
+            const computerGesture = ['Rock', 'Paper', 'Scissors'][Math.floor(Math.random() * 3)];
+
+            // Update displays
+            updatePlayerDisplay(playerGesture);
+            document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = gestureEmojis[computerGesture];
+            document.getElementById('computerMove').textContent = computerGesture;
+
+            // Determine winner
+            const result = determineWinner(playerGesture, computerGesture);
+            displayResult(result);
+
+            // Update scores
+            if (result === 'win') playerScore++;
+            if (result === 'lose') computerScore++;
+            
+            document.getElementById('playerScore').textContent = playerScore;
+            document.getElementById('computerScore').textContent = computerScore;
+
+            // Reset for next round
+            setTimeout(() => {
+                gameState = 'waiting';
+                document.getElementById('playBtn').disabled = false;
+            }, 3000);
+        }
+
+        // Determine winner
+        function determineWinner(player, computer) {
+            if (player === 'None' || player === 'Unknown') return 'invalid';
+            if (player === computer) return 'draw';
+            
+            if (
+                (player === 'Rock' && computer === 'Scissors') ||
+                (player === 'Paper' && computer === 'Rock') ||
+                (player === 'Scissors' && computer === 'Paper')
+            ) {
+                return 'win';
+            }
+            return 'lose';
+        }
+
+        // Display result
+        function displayResult(result) {
+            const resultArea = document.getElementById('resultArea');
+            let resultClass = '';
+            let resultText = '';
+
+            if (result === 'win') {
+                resultClass = 'result-win';
+                resultText = '🎉 You Win!';
+            } else if (result === 'lose') {
+                resultClass = 'result-lose';
+                resultText = '😢 Computer Wins!';
+            } else if (result === 'draw') {
+                resultClass = 'result-draw';
+                resultText = '🤝 Draw!';
+            } else {
+                resultClass = 'result-draw';
+                resultText = '⚠️ No valid gesture detected!';
+            }
+
+            resultArea.innerHTML = `<div class="result-display ${resultClass}">${resultText}</div>`;
+        }
+
+        // Reset game
+        function resetGame() {
+            playerScore = 0;
+            computerScore = 0;
+            document.getElementById('playerScore').textContent = '0';
+            document.getElementById('computerScore').textContent = '0';
+            document.getElementById('resultArea').innerHTML = '';
+            document.getElementById('countdownArea').style.display = 'none';
+            
+            // Reset displays
+            document.querySelectorAll('.move-display')[0].querySelector('.move-value').textContent = '❓';
+            document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = '❓';
+            document.getElementById('playerMove').textContent = 'Waiting...';
+            document.getElementById('computerMove').textContent = 'Waiting...';
+            
+            gameState = 'waiting';
+            document.getElementById('playBtn').disabled = false;
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initMediaPipe();
+            initCamera();
+        };
+    </script>
+</body>
+</html>
