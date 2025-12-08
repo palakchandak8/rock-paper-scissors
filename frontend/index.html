@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🪨 Rock Paper Scissors ✂️</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <style>
         * {
             margin: 0;
@@ -13,14 +11,18 @@
             box-sizing: border-box;
         }
 
-      
         body {
-        font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', cursive;
-        background-color: #f5f5f0;
-        background-image: 
-          linear-gradient(0deg, transparent 24px, rgba(200, 200, 200, 0.3) 25px, transparent 26px),
-           linear-gradient(90deg, transparent 24px, rgba(200, 200, 200, 0.3) 25px, transparent 26px);
-        background-size: 25px 25px;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', cursive;
+            background-color: #f5f5f0;
+            background-image: 
+                linear-gradient(0deg, transparent 24px, rgba(200, 200, 200, 0.3) 25px, transparent 26px),
+                linear-gradient(90deg, transparent 24px, rgba(200, 200, 200, 0.3) 25px, transparent 26px);
+            background-size: 25px 25px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
         }
 
         .title {
@@ -165,6 +167,20 @@
             transform: scaleX(-1);
         }
 
+        #canvas {
+            display: none;
+        }
+
+        #outputCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            pointer-events: none;
+        }
+
         .camera-overlay {
             position: absolute;
             top: 0;
@@ -283,10 +299,6 @@
             font-weight: bold;
         }
 
-        .waiting {
-            color: #999;
-        }
-
         .countdown-display {
             text-align: center;
             padding: 30px;
@@ -338,15 +350,23 @@
             color: white;
         }
 
+        .hand-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 5;
+        }
+
         .footer {
             margin-top: 30px;
             text-align: center;
             color: #999;
             font-size: 0.9rem;
-        }
-
-        canvas {
-            display: none;
         }
     </style>
 </head>
@@ -354,7 +374,7 @@
     <div class="title">
         🪨 Rock Paper Scissors ✂️
     </div>
-    <div class="subtitle">Show your hand gesture to play!</div>
+    <div class="subtitle">Show your hand gesture to play! 👐 Both hands detected!</div>
 
     <div class="container">
         <!-- Scoreboard -->
@@ -374,14 +394,15 @@
 
             <div class="how-to-play">
                 <h3>📋 How to Play</h3>
-                <div class="rule">🪨 Rock beats ✂️ Scissors</div>
-                <div class="rule">✋ Paper beats 🪨 Rock</div>
-                <div class="rule">✂️ Scissors beats ✋ Paper</div>
+                <div class="rule">✊ Rock beats ✌️ Scissors</div>
+                <div class="rule">✋ Paper beats ✊ Rock</div>
+                <div class="rule">✌️ Scissors beats ✋ Paper</div>
             </div>
 
             <div class="instruction">
                 Show your hand gesture to the camera!<br>
-                Computer will randomly choose its move 🎲
+                Computer will randomly choose its move 🎲<br>
+                <strong>Auto-rematch enabled!</strong>
             </div>
         </div>
 
@@ -389,7 +410,9 @@
         <div class="game-area card">
             <div class="camera-container">
                 <video id="video" autoplay playsinline></video>
+                <canvas id="outputCanvas"></canvas>
                 <canvas id="canvas"></canvas>
+                <div class="hand-indicator" id="handIndicator">No hands detected</div>
                 <div class="camera-overlay" id="cameraOverlay">
                     <div>📷 Unable to access camera. Please allow camera permissions.</div>
                     <button class="retry-btn" onclick="initCamera()">Try Again</button>
@@ -398,7 +421,7 @@
 
             <div class="controls">
                 <button class="play-btn" id="playBtn" onclick="startGame()">
-                    ▶️ Play!
+                    ▶️ Start Game!
                 </button>
                 <button class="reset-btn" id="resetBtn" onclick="resetGame()">
                     🔄 Reset
@@ -434,141 +457,202 @@
     </div>
 
     <div class="footer">
-        🎥 Powered by OpenCV & MediaPipe | Made with ❤️
+        🎥 Powered by Python MediaPipe | Made with ❤️
     </div>
 
     <script>
-        let hands, camera;
-        let gameState = 'waiting'; // waiting, countdown, playing, result
+        const BACKEND_URL = 'http://localhost:5000';
+        let videoElement, canvasElement;
+        let gameState = 'waiting';
         let playerScore = 0;
         let computerScore = 0;
         let currentPlayerGesture = 'None';
-        let countdownTimer;
         let countdownValue = 3;
+        let detectionInterval;
+        let isGameRunning = false;
 
         const gestureEmojis = {
             'Rock': '🪨',
             'Paper': '✋',
             'Scissors': '✂️',
-            'None': '❓'
+            'None': '❓',
+            'Unknown': '❓'
         };
 
-        // Initialize MediaPipe Hands
-        function initMediaPipe() {
-            hands = new Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-                }
-            });
-
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
-            hands.onResults(onResults);
-        }
-
-        // Initialize Camera
+        // Initialize camera
         function initCamera() {
-            const videoElement = document.getElementById('video');
+            videoElement = document.getElementById('video');
+            canvasElement = document.getElementById('canvas');
             const overlay = document.getElementById('cameraOverlay');
 
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user' } 
-            })
-            .then(stream => {
-                videoElement.srcObject = stream;
-                overlay.classList.add('hidden');
-                startVideoProcessing();
-            })
-            .catch(err => {
-                console.error('Camera error:', err);
-                overlay.classList.remove('hidden');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                .then(stream => {
+                    videoElement.srcObject = stream;
+                    overlay.classList.add('hidden');
+                    startGestureDetection();
+                })
+                .catch(err => {
+                    console.error('Camera error:', err);
+                    overlay.classList.remove('hidden');
+                });
+        }
+
+        // Capture frame and send to backend
+        async function detectGestureFromBackend() {
+            if (!videoElement || videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) {
+                return;
+            }
+
+            try {
+                const canvas = document.getElementById('canvas');
+                const outputCanvas = document.getElementById('outputCanvas');
+                
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                outputCanvas.width = videoElement.videoWidth;
+                outputCanvas.height = videoElement.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                const outputCtx = outputCanvas.getContext('2d');
+                
+                ctx.drawImage(videoElement, 0, 0);
+                
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+                const response = await fetch(`${BACKEND_URL}/api/detect-gesture`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const data = await response.json();
+                
+                // Clear previous drawings
+                outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+                
+                if (data.success && data.hands && data.hands.length > 0) {
+                    // Draw all detected hands
+                    data.hands.forEach(hand => {
+                        drawHandLandmarks(outputCtx, hand.landmarks, outputCanvas.width, outputCanvas.height);
+                    });
+                    
+                    currentPlayerGesture = data.gesture;
+                    
+                    // Update hand indicator
+                    const handIndicator = document.getElementById('handIndicator');
+                    if (data.hand_count === 1) {
+                        handIndicator.textContent = `1 hand detected: ${data.hands[0].label}`;
+                    } else if (data.hand_count === 2) {
+                        handIndicator.textContent = `2 hands detected: ${data.hands[0].label} & ${data.hands[1].label}`;
+                    }
+                } else {
+                    currentPlayerGesture = data.gesture || 'None';
+                    document.getElementById('handIndicator').textContent = 'No hands detected';
+                }
+                
+                // Always update display
+                updatePlayerDisplay(currentPlayerGesture);
+            } catch (error) {
+                console.error('Detection error:', error);
+            }
+        }
+
+        // Draw hand landmarks on canvas
+        function drawHandLandmarks(ctx, landmarks, width, height) {
+            // Hand connections (lines between points)
+            const connections = [
+                [0,1],[1,2],[2,3],[3,4],  // Thumb
+                [0,5],[5,6],[6,7],[7,8],  // Index
+                [0,9],[9,10],[10,11],[11,12],  // Middle
+                [0,13],[13,14],[14,15],[15,16],  // Ring
+                [0,17],[17,18],[18,19],[19,20],  // Pinky
+                [5,9],[9,13],[13,17]  // Palm
+            ];
+            
+            // Draw connections (lines)
+            ctx.strokeStyle = '#00FF00';
+            ctx.lineWidth = 2;
+            connections.forEach(([start, end]) => {
+                if (landmarks[start] && landmarks[end]) {
+                    ctx.beginPath();
+                    ctx.moveTo(landmarks[start].x * width, landmarks[start].y * height);
+                    ctx.lineTo(landmarks[end].x * width, landmarks[end].y * height);
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw landmarks (dots)
+            landmarks.forEach((landmark, index) => {
+                const x = landmark.x * width;
+                const y = landmark.y * height;
+                
+                // Different colors for different parts
+                if (index === 0) {
+                    ctx.fillStyle = '#00FF00';  // Green for wrist
+                } else if ([4,8,12,16,20].includes(index)) {
+                    ctx.fillStyle = '#FF0000';  // Red for fingertips
+                } else {
+                    ctx.fillStyle = '#FFFFFF';  // White for other points
+                }
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Add small border
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
             });
         }
 
-        // Process video frames
-        function startVideoProcessing() {
-            const videoElement = document.getElementById('video');
-            
-            async function sendFrame() {
-                if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-                    await hands.send({ image: videoElement });
-                }
-                requestAnimationFrame(sendFrame);
-            }
-            sendFrame();
+        // Start continuous gesture detection
+        function startGestureDetection() {
+            detectionInterval = setInterval(detectGestureFromBackend, 200);
         }
 
-        // Detect gesture from hand landmarks
-        function detectGesture(landmarks) {
-            const tipIds = [4, 8, 12, 16, 20];
-            let fingers = 0;
-
-            // Thumb
-            if (landmarks[tipIds[0]].x < landmarks[tipIds[0] - 1].x) {
-                fingers++;
-            }
-
-            // Other fingers
-            for (let i = 1; i < 5; i++) {
-                if (landmarks[tipIds[i]].y < landmarks[tipIds[i] - 2].y) {
-                    fingers++;
-                }
-            }
-
-            if (fingers === 0) return 'Rock';
-            if (fingers === 2) return 'Scissors';
-            if (fingers === 5) return 'Paper';
-            return 'Unknown';
-        }
-
-        // Handle MediaPipe results
-        function onResults(results) {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                currentPlayerGesture = detectGesture(landmarks);
-                
-                if (gameState === 'waiting' || gameState === 'countdown') {
-                    updatePlayerDisplay(currentPlayerGesture);
-                }
-            } else {
-                currentPlayerGesture = 'None';
-            }
-        }
-
-        // Update player move display
+        // Update player display
         function updatePlayerDisplay(gesture) {
             const emoji = gestureEmojis[gesture] || '❓';
             document.querySelectorAll('.move-display')[0].querySelector('.move-value').textContent = emoji;
             document.getElementById('playerMove').textContent = gesture === 'Unknown' ? 'Show a gesture' : gesture;
         }
 
-        // Start game countdown
+        // Start game
         function startGame() {
-            if (gameState !== 'waiting') return;
+            if (isGameRunning) return;
 
+            isGameRunning = true;
             gameState = 'countdown';
             countdownValue = 3;
             document.getElementById('playBtn').disabled = true;
+            document.getElementById('playBtn').textContent = '🎮 Game Running...';
+            
+            startNewRound();
+        }
+
+        // Start a new round (used for auto-rematch)
+        function startNewRound() {
+            if (!isGameRunning) return;
+
+            gameState = 'countdown';
+            countdownValue = 3;
             document.getElementById('countdownArea').style.display = 'block';
             document.getElementById('resultArea').innerHTML = '';
 
-            // Reset computer display
             document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = '❓';
             document.getElementById('computerMove').textContent = 'Waiting...';
 
             runCountdown();
         }
 
-        // Countdown animation
+        // Countdown
         function runCountdown() {
+            if (!isGameRunning) return;
+
             const countdownNumber = document.getElementById('countdownNumber');
             
-            if (countdownValue > 0) {
+            if (countdownValue > 0 && gameState === 'countdown') {
                 countdownNumber.textContent = countdownValue;
                 countdownNumber.style.animation = 'none';
                 setTimeout(() => {
@@ -577,83 +661,75 @@
                 
                 countdownValue--;
                 setTimeout(runCountdown, 1000);
-            } else {
+            } else if (gameState === 'countdown') {
                 countdownNumber.textContent = 'SHOOT!';
                 setTimeout(finishRound, 500);
             }
         }
 
-        // Finish the round
-        function finishRound() {
+        // Finish round
+        async function finishRound() {
+            if (!isGameRunning || gameState !== 'countdown') return;
+            
             gameState = 'result';
             document.getElementById('countdownArea').style.display = 'none';
 
-            const playerGesture = currentPlayerGesture === 'Unknown' ? 'None' : currentPlayerGesture;
-            const computerGesture = ['Rock', 'Paper', 'Scissors'][Math.floor(Math.random() * 3)];
+            const playerGesture = currentPlayerGesture;
 
-            // Update displays
-            updatePlayerDisplay(playerGesture);
-            document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = gestureEmojis[computerGesture];
-            document.getElementById('computerMove').textContent = computerGesture;
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/play`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerGesture: playerGesture })
+                });
 
-            // Determine winner
-            const result = determineWinner(playerGesture, computerGesture);
-            displayResult(result);
+                const data = await response.json();
 
-            // Update scores
-            if (result === 'win') playerScore++;
-            if (result === 'lose') computerScore++;
-            
-            document.getElementById('playerScore').textContent = playerScore;
-            document.getElementById('computerScore').textContent = computerScore;
+                if (data.success) {
+                    updatePlayerDisplay(data.playerGesture);
+                    document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = gestureEmojis[data.computerGesture];
+                    document.getElementById('computerMove').textContent = data.computerGesture;
 
-            // Reset for next round
+                    displayResult(data.result, data.message);
+
+                    if (data.result === 'win') playerScore++;
+                    if (data.result === 'lose') computerScore++;
+                    
+                    document.getElementById('playerScore').textContent = playerScore;
+                    document.getElementById('computerScore').textContent = computerScore;
+                }
+            } catch (error) {
+                console.error('Play error:', error);
+                displayResult('draw', 'Backend error - try again');
+            }
+
+            // Auto-rematch: Start next round after 3 seconds if game is still running
             setTimeout(() => {
-                gameState = 'waiting';
-                document.getElementById('playBtn').disabled = false;
+                if (isGameRunning) {
+                    startNewRound();
+                }
             }, 3000);
         }
 
-        // Determine winner
-        function determineWinner(player, computer) {
-            if (player === 'None' || player === 'Unknown') return 'invalid';
-            if (player === computer) return 'draw';
-            
-            if (
-                (player === 'Rock' && computer === 'Scissors') ||
-                (player === 'Paper' && computer === 'Rock') ||
-                (player === 'Scissors' && computer === 'Paper')
-            ) {
-                return 'win';
-            }
-            return 'lose';
-        }
-
         // Display result
-        function displayResult(result) {
+        function displayResult(result, message) {
             const resultArea = document.getElementById('resultArea');
             let resultClass = '';
-            let resultText = '';
 
             if (result === 'win') {
                 resultClass = 'result-win';
-                resultText = '🎉 You Win!';
             } else if (result === 'lose') {
                 resultClass = 'result-lose';
-                resultText = '😢 Computer Wins!';
-            } else if (result === 'draw') {
-                resultClass = 'result-draw';
-                resultText = '🤝 Draw!';
             } else {
                 resultClass = 'result-draw';
-                resultText = '⚠️ No valid gesture detected!';
             }
 
-            resultArea.innerHTML = `<div class="result-display ${resultClass}">${resultText}</div>`;
+            resultArea.innerHTML = `<div class="result-display ${resultClass}">${message}</div>`;
         }
 
-        // Reset game
+        // Reset game (stops auto-rematch and resets scores)
         function resetGame() {
+            isGameRunning = false;
             playerScore = 0;
             computerScore = 0;
             document.getElementById('playerScore').textContent = '0';
@@ -661,7 +737,6 @@
             document.getElementById('resultArea').innerHTML = '';
             document.getElementById('countdownArea').style.display = 'none';
             
-            // Reset displays
             document.querySelectorAll('.move-display')[0].querySelector('.move-value').textContent = '❓';
             document.querySelectorAll('.move-display')[1].querySelector('.move-value').textContent = '❓';
             document.getElementById('playerMove').textContent = 'Waiting...';
@@ -669,11 +744,11 @@
             
             gameState = 'waiting';
             document.getElementById('playBtn').disabled = false;
+            document.getElementById('playBtn').textContent = '▶️ Start Game!';
         }
 
         // Initialize on load
         window.onload = () => {
-            initMediaPipe();
             initCamera();
         };
     </script>
