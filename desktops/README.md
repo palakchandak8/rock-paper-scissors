@@ -20,7 +20,7 @@ pip install opencv-python mediapipe
 
 ### How to Run:
 ```bash
-cd examples
+cd desktops
 python rps-opencv.py
 ```
 
