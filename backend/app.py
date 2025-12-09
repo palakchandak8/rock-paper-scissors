@@ -8,15 +8,18 @@ import random
 
 app = Flask(__name__)
 CORS(app, resources={
-       r"/api/*": {
-           "origins": [
-               "http://localhost:5500",
-               "http://127.0.0.1:5500",
-               "https://rock-paper-scissors-fbeezojzb-palak-s-projects-c3e9d43e.vercel.app",
-               "https://*.vercel.app"
-           ]
-       }
-   })
+    r"/api/*": {
+        "origins": [
+            "http://localhost:5500",
+            "http://127.0.0.1:5500",
+            "https://rock-paper-scissors-fbeezojzb-palak-s-projects-c3e9d43e.vercel.app",
+            "https://rock-paper-scissors-rho-mocha.vercel.app",
+            "https://rock-paper-scissors-git-main-palak-s-projects-c3e9d43e.vercel.app",
+            "https://*.vercel.app",
+            "https://*-palak-s-projects-c3e9d43e.vercel.app"
+        ]
+    }
+})
 
 # MediaPipe setup - Accept BOTH hands (left and right)
 mpHands = mp.solutions.hands
